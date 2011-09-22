@@ -1,0 +1,148 @@
+
+Some low level example programs for the Olimex LPC-H2148.
+
+http://www.sparkfun.com/products/676
+
+You will want the schematics, which you can find on the sparkfun page
+or the olimex web site and others.
+
+You will also want/need the lpc2148 documentation.
+
+UM10139
+http://ics.nxp.com/support/documents/microcontrollers/?scope=LPC2148&type=user
+
+something must have changed at the NXP website, you used to just google
+the part number and get an NXP website with a data sheet and a zip
+file, the zip file had all the docs, etc in it.  App notes, users manual,
+etc.  Now you have to sort through the generic lpc2xxx parts, isolate the
+2148 then get a list of individual items/docs of which a number have
+nothing at all to do with this part.
+
+Anyway...The blinker programs are where you start.  Of all the parts
+I have worked on recently this one bothers me the most.  The led blink
+rate is just not right.  It is supposed to be a 12Mhz clock and I see
+on the can for the crystal that it is, and the uart works based on a
+12MHz reference, so it must be, just that the timer seems to be off.
+As if there is a prescaler somewhere that I cannot find.
+
+Codesourcery, now consumed by Mentor Graphics, as a lite version of
+codebench which is a/the good gcc toolchain build for ARM.  You can
+certainly build the gnu tools and llvm tools from sources for these
+sample applications, neither the C library nor gcc library are used.
+
+llvm/clang is not required, you can apt-get install llvm clang and
+have an alternate C compiler, I still use gnu binutils to take the
+llvm output the rest of the way to a binary.
+
+The C samples use thumb mode, this is an ARM7TDMI which supports the
+ARM 32 bit instruction set as well as ARMs 16 bit instruction set
+which is a subset of the 32 bit instruction set, known as thumb.  Not
+to be confused with the newer thumb2 which you find in the cortex-m
+core.  The thumb instructions used here execute on armv4T and newer
+cores as well as the cortex-m.  ARM does not execute on the cortex-m
+and thumb2 does not execute on most of the non-cortex-m cores.
+
+For this board I am using jtag and a serial port, you could easily
+use only the serial port as I have demonstrated in a number of my
+other lpc based samples.  flashmagic I think it is called is a well
+known tool for this.  Sparkfun as a number of basic ftdi breakout boards.
+I recommend buying a few, 5V and 3.3V...
+
+http://www.sparkfun.com/products/9873
+
+two paperclips or somewire to connect one goes from p0.0 the TXD0 pin
+on the microcontroller to the RXD pin on the ftdi board, the other
+connects ground to ground.  If you want to type characters to go into
+the microcontroller then tie TXD in the ftdi board to RXD0 on the
+lpc board.
+
+unfortunately I have not had luck with and the price is not worth what
+you get for the olimex usb based arm jtag. the amontek jtag-tiny is
+nice but shipping is so horrible that you would feel compelled to buy
+a dozen or two and then have to sell those off yourself or something.
+
+Instead go to a sparkfun competitor (hopefully sparkfun will build/carry
+something like these).
+
+http://microcontrollershop.com/product_info.php?cPath=154_171&products_id=3124
+
+http://microcontrollershop.com/product_info.php?cPath=154_171&products_id=3647
+
+The jtag.cfg file in the repo is for the jlink.  pretty much the same
+as doing
+
+openocd -f interface/jlink.cfg -f target/lpc2148.cfg
+
+I prefer to have my openocd jtag files in a single file and keep it close
+to the project instead of somewhere out there on the drive (for the above
+to work you likely have to be in the correct directory).
+
+If for example you are in the root of the project directory you can
+run
+
+openocd -f jtag.cfg
+
+it will connect to the board.
+
+Open a second window and
+
+telnet localhost 4444
+
+to connect to openocd with a command line, type help for info on the
+commands.
+
+I like to have a third window open in whatever directory I am compiling
+in, and a fourth window if I have a uart connected running minicom.
+
+compile the program, say blinker01.elf, then in the telnet window
+
+>halt
+>load_image blinker01/blinker01.elf
+>resume 0x40000200
+
+Note that the linker script, memmap, in the blinker01 directory specifies
+0x40000200 as the base memory address not 0x40000000.  It is either a
+nuance of the .elf file or openocd that 0x40000000 is printed when
+you perform the load, and running at the proper address of 0x40000200
+does work.  the 0x200 is to avoid some lpc variables when using the
+built in flash libraries or the bootloader.  Normally I dont bother
+to avoid and just use 0x40000000.
+
+Also note the path for load_image has to do with what directory you
+ran openocd in.  you can always use a full path, I recommend something
+simple to type like ~/bin/myprog.elf and copy all of your .elfs there.
+
+if you are using the signalyzer lite, then remove/comment the jlink
+line in the jtag.cfg file and replace it with the stuff from the openocd
+sources  tcl/interface/signalyzer-lite.cfg, basically this:
+
+#
+# Xverve Signalyzer LITE (DT-USB-SLITE)
+#
+# http://www.signalyzer.com
+#
+
+interface ft2232
+ft2232_device_desc "Signalyzer LITE"
+ft2232_layout signalyzer
+ft2232_vid_pid 0x0403 0xbca1
+
+or if you have a jtag-tiny grab the interface cfg stuff for it, etc.
+
+Note that building openocd from sources is not a bad idea
+./configure --help
+and see that you probably want to do one or both of these:
+
+apt-get install libftdi-dev
+./configure  --enable-jlink --enable-ft2232_libftdi
+make
+make install
+
+If your openocd binary is not built for the interface you are using
+it wont know what to do, and wont work.
+
+The uartdiv.c program in uart01 is a homegrown program used to figure
+out what divisors to use to get from the PCLK reference clock to the
+desired baud rate.  the lpc docs talk you through it and lpc also
+provides an excel spreadsheet for figuring it out.  So far uartdiv.c
+has worked for many lpc parts, arm7 and cortex-m.
