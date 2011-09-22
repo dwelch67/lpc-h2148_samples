@@ -146,3 +146,13 @@ out what divisors to use to get from the PCLK reference clock to the
 desired baud rate.  the lpc docs talk you through it and lpc also
 provides an excel spreadsheet for figuring it out.  So far uartdiv.c
 has worked for many lpc parts, arm7 and cortex-m.
+
+RTC01.  I think this clears up the timer and 12Mhz thing quite nicely.
+Well dont know why I cant blink at the right rate but turning on the
+rtc, and then comparing the seconds counter to timer ticks since
+the last seconds counter you get 12 million timer ticks, 12 million
+CCLKs.  Need to revisit the led blinkers to see why I couldnt get
+the rates I was looking for.
+
+
+
